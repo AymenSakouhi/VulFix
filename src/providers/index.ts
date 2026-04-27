@@ -1,6 +1,7 @@
 import type { FixContext, FixResponse } from "../types.ts";
 import { createGeminiProvider } from "./gemini.ts";
 import { createOpenAIProvider, createGroqProvider } from "./openai.ts";
+import { createAnthropicProvider } from "./anthropic.ts";
 
 export interface Provider {
   name: ProviderName;
@@ -45,6 +46,6 @@ export function createProvider(stub: ProviderStub): Provider {
     case "gemini": return createGeminiProvider(stub.apiKey);
     case "openai": return createOpenAIProvider(stub.apiKey);
     case "groq": return createGroqProvider(stub.apiKey);
-    default: throw new Error(`Provider not implemented: ${stub.name}`);
+    case "anthropic": return createAnthropicProvider(stub.apiKey);
   }
 }
