@@ -32,3 +32,40 @@ test("applyBump returns failure when package not in deps", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+import { applyPatchCode } from "../src/applier.ts";
+
+test("applyPatchCode replaces a unique snippet", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "vulfix-test-"));
+  try {
+    await writeFile(join(dir, "a.js"), "before\nx = old()\nafter\n");
+    const result = await applyPatchCode(dir, [{ file: "a.js", search: "x = old()", replace: "x = newApi()" }]);
+    assert.equal(result.ok, true);
+    const content = await readFile(join(dir, "a.js"), "utf8");
+    assert.equal(content, "before\nx = newApi()\nafter\n");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("applyPatchCode fails when search appears zero times", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "vulfix-test-"));
+  try {
+    await writeFile(join(dir, "a.js"), "before\nafter\n");
+    const result = await applyPatchCode(dir, [{ file: "a.js", search: "missing", replace: "anything" }]);
+    assert.equal(result.ok, false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("applyPatchCode fails when search appears more than once", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "vulfix-test-"));
+  try {
+    await writeFile(join(dir, "a.js"), "dup\ndup\n");
+    const result = await applyPatchCode(dir, [{ file: "a.js", search: "dup", replace: "uniq" }]);
+    assert.equal(result.ok, false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

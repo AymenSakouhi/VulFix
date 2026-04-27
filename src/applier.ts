@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import type { CodeDiff } from "./types.ts";
 
 export type ApplyResult = { ok: true } | { ok: false; reason: string };
 
@@ -48,6 +49,23 @@ export async function applyBump(
   if (!install.ok) {
     await writeFile(pkgPath, original);
     return { ok: false, reason: `npm install failed: ${install.stderr.trim().slice(0, 200)}` };
+  }
+  return { ok: true };
+}
+
+export async function applyPatchCode(cwd: string, diffs: CodeDiff[]): Promise<ApplyResult> {
+  for (const diff of diffs) {
+    const filePath = join(cwd, diff.file);
+    const content = await readFile(filePath, "utf8");
+    const occurrences = content.split(diff.search).length - 1;
+    if (occurrences === 0) {
+      return { ok: false, reason: `Pattern not found in ${diff.file}: ${diff.search.slice(0, 60)}` };
+    }
+    if (occurrences > 1) {
+      return { ok: false, reason: `Pattern matches ${occurrences} times in ${diff.file}; require exactly 1` };
+    }
+    const replaced = content.replace(diff.search, diff.replace);
+    await writeFile(filePath, replaced);
   }
   return { ok: true };
 }
