@@ -1,0 +1,27 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "lodash": {
+      "name": "lodash",
+      "severity": "high",
+      "isDirect": true,
+      "via": [{
+        "source": 1094499,
+        "name": "lodash",
+        "dependency": "lodash",
+        "title": "Prototype Pollution in lodash",
+        "url": "https://github.com/advisories/GHSA-jf85-cpcp-j695",
+        "severity": "high",
+        "range": "<4.17.21"
+      }],
+      "effects": [],
+      "range": "<4.17.21",
+      "nodes": ["node_modules/lodash"],
+      "fixAvailable": { "name": "lodash", "version": "4.17.21", "isSemVerMajor": false }
+    }
+  },
+  "metadata": {
+    "vulnerabilities": { "info": 0, "low": 0, "moderate": 0, "high": 1, "critical": 0, "total": 1 },
+    "dependencies": { "prod": 2, "dev": 0, "optional": 0, "peer": 0, "peerOptional": 0, "total": 2 }
+  }
+}
