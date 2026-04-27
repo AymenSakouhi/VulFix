@@ -4,7 +4,7 @@ import type { FixContext, FixResponse } from "../../src/types.ts";
 export function fakeProvider(canned: FixResponse | ((ctx: FixContext) => FixResponse)): Provider {
   return {
     name: "gemini",
-    async generateFix(ctx: FixContext): Promise<FixResponse> {
+    async generateFix(ctx: FixContext, _options?: { strict?: boolean }): Promise<FixResponse> {
       return typeof canned === "function" ? canned(ctx) : canned;
     },
   };
@@ -13,6 +13,6 @@ export function fakeProvider(canned: FixResponse | ((ctx: FixContext) => FixResp
 export function failingProvider(message = "boom"): Provider {
   return {
     name: "gemini",
-    async generateFix(): Promise<FixResponse> { throw new Error(message); },
+    async generateFix(_ctx?: FixContext, _options?: { strict?: boolean }): Promise<FixResponse> { throw new Error(message); },
   };
 }

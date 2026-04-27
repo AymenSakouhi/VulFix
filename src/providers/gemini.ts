@@ -8,9 +8,9 @@ const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODE
 export function createGeminiProvider(apiKey: string): Provider {
   return {
     name: "gemini",
-    async generateFix(context: FixContext): Promise<FixResponse> {
+    async generateFix(context: FixContext, options?: { strict?: boolean }): Promise<FixResponse> {
       const body = {
-        systemInstruction: { parts: [{ text: buildSystemPrompt() }] },
+        systemInstruction: { parts: [{ text: buildSystemPrompt(options?.strict) }] },
         contents: [{ role: "user", parts: [{ text: JSON.stringify(context) }] }],
         generationConfig: { responseMimeType: "application/json", temperature: 0 },
       };

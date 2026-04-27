@@ -18,11 +18,11 @@ const GROQ_CFG: Config = {
 function createCompatProvider(apiKey: string, cfg: Config): Provider {
   return {
     name: cfg.name,
-    async generateFix(context: FixContext): Promise<FixResponse> {
+    async generateFix(context: FixContext, options?: { strict?: boolean }): Promise<FixResponse> {
       const body = {
         model: cfg.model,
         messages: [
-          { role: "system", content: buildSystemPrompt() },
+          { role: "system", content: buildSystemPrompt(options?.strict) },
           { role: "user", content: JSON.stringify(context) },
         ],
         response_format: { type: "json_object" },

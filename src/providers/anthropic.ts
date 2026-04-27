@@ -8,11 +8,11 @@ const MODEL = "claude-haiku-4-5-20251001";
 export function createAnthropicProvider(apiKey: string): Provider {
   return {
     name: "anthropic",
-    async generateFix(context: FixContext): Promise<FixResponse> {
+    async generateFix(context: FixContext, options?: { strict?: boolean }): Promise<FixResponse> {
       const body = {
         model: MODEL,
         max_tokens: 2048,
-        system: buildSystemPrompt(),
+        system: buildSystemPrompt(options?.strict),
         messages: [{ role: "user", content: JSON.stringify(context) }],
         temperature: 0,
       };

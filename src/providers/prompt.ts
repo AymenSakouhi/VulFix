@@ -1,7 +1,10 @@
 import type { FixResponse } from "../types.ts";
 
-export function buildSystemPrompt(): string {
-  return `You are a security-fix assistant. Given a JSON object describing one npm vulnerability,
+export function buildSystemPrompt(strict?: boolean): string {
+  const prefix = strict
+    ? `CRITICAL: return ONLY valid JSON. No prose, no markdown fences, no explanations outside the JSON object. If you cannot produce valid JSON, return {"action":"none","targetVersion":null,"replacementPackage":null,"codeDiffs":[],"risk":"safe","explanation":"could not generate fix"}.\n\n`
+    : "";
+  return `${prefix}You are a security-fix assistant. Given a JSON object describing one npm vulnerability,
 return ONLY a JSON object matching this schema (no prose, no markdown fences):
 
 {

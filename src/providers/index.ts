@@ -5,7 +5,7 @@ import { createAnthropicProvider } from "./anthropic.ts";
 
 export interface Provider {
   name: ProviderName;
-  generateFix(context: FixContext): Promise<FixResponse>;
+  generateFix(context: FixContext, options?: { strict?: boolean }): Promise<FixResponse>;
 }
 
 export type ProviderName = "gemini" | "openai" | "anthropic" | "groq";
