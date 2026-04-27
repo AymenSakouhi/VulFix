@@ -57,3 +57,26 @@ test("Gemini provider parses a well-formed JSON response", async (t) => {
   assert.equal(result.targetVersion, "4.17.21");
   assert.equal(result.risk, "safe");
 });
+
+test("OpenAI provider parses a well-formed JSON response", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [{
+          message: { content: '{"action":"bump","targetVersion":"4.17.21","replacementPackage":null,"codeDiffs":[],"risk":"safe","explanation":"ok"}' },
+        }],
+      }),
+      { status: 200 },
+    );
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const provider = createProvider({ name: "openai", apiKey: "test-key" });
+  const result = await provider.generateFix({
+    package: "lodash", currentVersion: "<4.17.21", vulnId: "GHSA-x",
+    severity: "high", advisorySummary: "test", patchedVersions: ">=4.17.21",
+    availableVersions: ["4.17.21"], isDirectDep: true, foundInSource: [],
+  });
+  assert.equal(result.action, "bump");
+  assert.equal(result.risk, "safe");
+});
