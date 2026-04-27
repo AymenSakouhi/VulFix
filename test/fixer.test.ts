@@ -28,7 +28,7 @@ test("fixVuln applies safe bump in auto mode", async () => {
       action: "bump", targetVersion: "4.17.21", replacementPackage: null,
       codeDiffs: [], risk: "safe", explanation: "ok",
     });
-    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: false, auto: true }, async () => true, { skipInstall: true });
+    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: false, auto: true }, async () => true, { skipInstall: true }, { skipVersionLookup: true });
     assert.equal(outcome.kind, "fixed");
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -42,7 +42,7 @@ test("fixVuln dry-run reports without applying", async () => {
       action: "bump", targetVersion: "4.17.21", replacementPackage: null,
       codeDiffs: [], risk: "safe", explanation: "ok",
     });
-    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: true, auto: false }, async () => true, { skipInstall: true });
+    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: true, auto: false }, async () => true, { skipInstall: true }, { skipVersionLookup: true });
     assert.equal(outcome.kind, "skipped");
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -56,7 +56,7 @@ test("fixVuln prompts on risky action and respects 'no'", async () => {
       action: "bump", targetVersion: "5.0.0", replacementPackage: null,
       codeDiffs: [], risk: "risky", explanation: "major bump",
     });
-    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: false, auto: false }, async () => false, { skipInstall: true });
+    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: false, auto: false }, async () => false, { skipInstall: true }, { skipVersionLookup: true });
     assert.equal(outcome.kind, "declined-by-user");
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -70,7 +70,7 @@ test("fixVuln returns 'declined-by-llm' for action:none", async () => {
       action: "none", targetVersion: null, replacementPackage: null,
       codeDiffs: [], risk: "safe", explanation: "no fix known",
     });
-    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: false, auto: true }, async () => true, { skipInstall: true });
+    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: false, auto: true }, async () => true, { skipInstall: true }, { skipVersionLookup: true });
     assert.equal(outcome.kind, "declined-by-llm");
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -80,8 +80,49 @@ test("fixVuln returns 'declined-by-llm' for action:none", async () => {
 test("fixVuln returns 'skipped' on provider error", async () => {
   const dir = await makeProject();
   try {
-    const outcome = await fixVuln(sampleVuln, dir, failingProvider(), { dryRun: false, auto: true }, async () => true, { skipInstall: true });
+    const outcome = await fixVuln(sampleVuln, dir, failingProvider(), { dryRun: false, auto: true }, async () => true, { skipInstall: true }, { skipVersionLookup: true });
     assert.equal(outcome.kind, "skipped");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("fixVuln treats patch_code as risky even if LLM marks safe", async () => {
+  const dir = await makeProject();
+  try {
+    const provider = fakeProvider({
+      action: "patch_code", targetVersion: null, replacementPackage: null,
+      codeDiffs: [{ file: "a.js", search: "old", replace: "new" }],
+      risk: "safe",
+      explanation: "patched",
+    });
+    let prompted = false;
+    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: false, auto: false }, async () => { prompted = true; return false; }, { skipInstall: true }, { skipVersionLookup: true });
+    assert.equal(prompted, true);
+    assert.equal(outcome.kind, "declined-by-user");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("callWithRetry retries with strict flag on SyntaxError", async () => {
+  const dir = await makeProject();
+  try {
+    let calls = 0;
+    let secondCallStrict = false;
+    const provider: import("../src/providers/index.ts").Provider = {
+      name: "gemini",
+      async generateFix(_ctx, opts) {
+        calls++;
+        if (calls === 1) throw new SyntaxError("bad json");
+        secondCallStrict = opts?.strict === true;
+        return { action: "bump", targetVersion: "4.17.21", replacementPackage: null, codeDiffs: [], risk: "safe", explanation: "ok" };
+      },
+    };
+    const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: false, auto: true }, async () => true, { skipInstall: true }, { skipVersionLookup: true });
+    assert.equal(calls, 2);
+    assert.equal(secondCallStrict, true);
+    assert.equal(outcome.kind, "fixed");
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

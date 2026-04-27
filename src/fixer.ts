@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import type { Vuln, FixContext, FixOutcome, RunMode, FixResponse } from "./types.ts";
 import type { Provider } from "./providers/index.ts";
 import { findUsages } from "./source-grep.ts";
@@ -5,8 +6,33 @@ import { applyBump, applyPatchCode, applyReplace, type ApplyOptions } from "./ap
 
 export type ConfirmFn = (response: FixResponse, vuln: Vuln) => Promise<boolean>;
 
-export async function buildContext(vuln: Vuln, cwd: string): Promise<FixContext> {
+export interface BuildContextOptions {
+  skipVersionLookup?: boolean;
+}
+
+export async function fetchAvailableVersions(pkgName: string): Promise<string[]> {
+  return new Promise((resolve) => {
+    const proc = spawn("npm", ["view", pkgName, "versions", "--json"], { shell: true });
+    let stdout = "";
+    proc.stdout.on("data", (d) => (stdout += d));
+    proc.on("close", (code) => {
+      if (code !== 0) { resolve([]); return; }
+      try {
+        const parsed = JSON.parse(stdout.trim());
+        resolve(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        resolve([]);
+      }
+    });
+    proc.on("error", () => resolve([]));
+  });
+}
+
+export async function buildContext(vuln: Vuln, cwd: string, buildOpts: BuildContextOptions = {}): Promise<FixContext> {
   const foundInSource = vuln.isDirectDep ? await findUsages(vuln.package, cwd) : [];
+  const availableVersions = (!buildOpts.skipVersionLookup && vuln.isDirectDep)
+    ? await fetchAvailableVersions(vuln.package)
+    : [];
   return {
     package: vuln.package,
     currentVersion: vuln.currentVersion,
@@ -14,7 +40,7 @@ export async function buildContext(vuln: Vuln, cwd: string): Promise<FixContext>
     severity: vuln.severity,
     advisorySummary: vuln.advisorySummary,
     patchedVersions: vuln.patchedVersions,
-    availableVersions: [],
+    availableVersions,
     isDirectDep: vuln.isDirectDep,
     foundInSource,
   };
@@ -25,7 +51,7 @@ async function callWithRetry(provider: Provider, ctx: FixContext): Promise<FixRe
     return await provider.generateFix(ctx);
   } catch (err) {
     if (err instanceof SyntaxError) {
-      return await provider.generateFix(ctx);
+      return await provider.generateFix(ctx, { strict: true });
     }
     throw err;
   }
@@ -38,10 +64,11 @@ export async function fixVuln(
   mode: RunMode,
   confirm: ConfirmFn,
   applyOpts: ApplyOptions = {},
+  buildOpts: BuildContextOptions = {},
 ): Promise<FixOutcome> {
   let response: FixResponse;
   try {
-    const ctx = await buildContext(vuln, cwd);
+    const ctx = await buildContext(vuln, cwd, buildOpts);
     response = await callWithRetry(provider, ctx);
   } catch (err) {
     return { kind: "skipped", vuln, reason: err instanceof Error ? err.message : String(err) };
@@ -55,7 +82,8 @@ export async function fixVuln(
     return { kind: "skipped", vuln, reason: "dry-run" };
   }
 
-  const needsConfirm = response.risk === "risky" && !mode.auto;
+  const effectivelyRisky = response.risk === "risky" || response.action === "patch_code" || response.action === "replace";
+  const needsConfirm = effectivelyRisky && !mode.auto;
   if (needsConfirm) {
     const ok = await confirm(response, vuln);
     if (!ok) return { kind: "declined-by-user", vuln };
