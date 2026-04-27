@@ -69,3 +69,21 @@ test("applyPatchCode fails when search appears more than once", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+import { applyReplace } from "../src/applier.ts";
+
+test("applyReplace swaps dep entries (skipInstall mode)", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "vulfix-test-"));
+  try {
+    await writeFile(join(dir, "package.json"), JSON.stringify({
+      name: "x", version: "0.0.0", dependencies: { "old-pkg": "1.0.0" },
+    }, null, 2));
+    const result = await applyReplace(dir, "old-pkg", "new-pkg", "2.0.0", [], { skipInstall: true });
+    assert.equal(result.ok, true);
+    const pkg = JSON.parse(await readFile(join(dir, "package.json"), "utf8"));
+    assert.equal(pkg.dependencies["old-pkg"], undefined);
+    assert.equal(pkg.dependencies["new-pkg"], "2.0.0");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

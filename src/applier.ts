@@ -69,3 +69,32 @@ export async function applyPatchCode(cwd: string, diffs: CodeDiff[]): Promise<Ap
   }
   return { ok: true };
 }
+
+export async function applyReplace(
+  cwd: string,
+  oldPkg: string,
+  newPkg: string,
+  newVersion: string,
+  diffs: CodeDiff[],
+  opts: ApplyOptions = {},
+): Promise<ApplyResult> {
+  const pkgPath = join(cwd, "package.json");
+  const original = await readFile(pkgPath, "utf8");
+  const pkg = JSON.parse(original) as PackageJson;
+  const loc = findDepLocation(pkg, oldPkg);
+  if (!loc) return { ok: false, reason: `${oldPkg} not in dependencies or devDependencies` };
+
+  delete pkg[loc]![oldPkg];
+  pkg[loc]![newPkg] = newVersion;
+  await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+
+  if (!opts.skipInstall) {
+    const install = await runNpmInstall(cwd);
+    if (!install.ok) {
+      await writeFile(pkgPath, original);
+      return { ok: false, reason: `npm install failed: ${install.stderr.trim().slice(0, 200)}` };
+    }
+  }
+  if (diffs.length > 0) return applyPatchCode(cwd, diffs);
+  return { ok: true };
+}
