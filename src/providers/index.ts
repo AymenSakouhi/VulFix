@@ -1,4 +1,5 @@
 import type { FixContext, FixResponse } from "../types.ts";
+import { createGeminiProvider } from "./gemini.ts";
 
 export interface Provider {
   name: ProviderName;
@@ -16,7 +17,7 @@ export const PROVIDER_ENV: Record<ProviderName, string> = {
 
 const PRIORITY: ProviderName[] = ["gemini", "openai", "anthropic", "groq"];
 
-interface ProviderStub {
+export interface ProviderStub {
   name: ProviderName;
   apiKey: string;
 }
@@ -36,4 +37,11 @@ export function selectProvider(
     if (key) return { name, apiKey: key };
   }
   return null;
+}
+
+export function createProvider(stub: ProviderStub): Provider {
+  switch (stub.name) {
+    case "gemini": return createGeminiProvider(stub.apiKey);
+    default: throw new Error(`Provider not implemented: ${stub.name}`);
+  }
 }

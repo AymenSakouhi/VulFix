@@ -25,3 +25,35 @@ test("selectProvider returns null when no key set", () => {
 test("selectProvider returns null when explicit choice has no key", () => {
   assert.equal(selectProvider("openai", { GEMINI_API_KEY: "g" }), null);
 });
+
+import { createProvider } from "../src/providers/index.ts";
+
+test("Gemini provider parses a well-formed JSON response", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        candidates: [{
+          content: { parts: [{ text: '{"action":"bump","targetVersion":"4.17.21","replacementPackage":null,"codeDiffs":[],"risk":"safe","explanation":"patched"}' }] },
+        }],
+      }),
+      { status: 200 },
+    );
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const provider = createProvider({ name: "gemini", apiKey: "test-key" });
+  const result = await provider.generateFix({
+    package: "lodash",
+    currentVersion: "<4.17.21",
+    vulnId: "GHSA-x",
+    severity: "high",
+    advisorySummary: "test",
+    patchedVersions: ">=4.17.21",
+    availableVersions: ["4.17.21"],
+    isDirectDep: true,
+    foundInSource: [],
+  });
+  assert.equal(result.action, "bump");
+  assert.equal(result.targetVersion, "4.17.21");
+  assert.equal(result.risk, "safe");
+});
