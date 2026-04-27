@@ -25,7 +25,7 @@ test("end-to-end: parse audit + apply bump for each direct vuln", async () => {
 
     const outcomes: FixOutcome[] = [];
     for (const v of vulns) {
-      const outcome = await fixVuln(v, dir, provider, { dryRun: false, auto: true }, async () => true, { skipInstall: true });
+      const outcome = await fixVuln(v, dir, provider, { dryRun: false, auto: true }, async () => true, { skipInstall: true }, { skipVersionLookup: true });
       outcomes.push(outcome);
     }
     assert.equal(outcomes.length, 1);
