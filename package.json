@@ -1,0 +1,24 @@
+{
+  "name": "vulfix",
+  "version": "0.1.0",
+  "description": "Scan and fix npm vulnerabilities with help from an LLM.",
+  "bin": { "vulfix": "dist/cli.js" },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test test/**/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  },
+  "files": ["dist"],
+  "license": "MIT"
+}
