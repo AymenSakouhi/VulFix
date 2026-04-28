@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { fixVuln } from "../src/fixer.ts";
+import { fixVuln, buildContext } from "../src/fixer.ts";
 import { fakeProvider, failingProvider } from "./helpers/fake-provider.ts";
 import type { Vuln } from "../src/types.ts";
 
@@ -100,6 +100,27 @@ test("fixVuln treats patch_code as risky even if LLM marks safe", async () => {
     const outcome = await fixVuln(sampleVuln, dir, provider, { dryRun: false, auto: false }, async () => { prompted = true; return false; }, { skipInstall: true }, { skipVersionLookup: true });
     assert.equal(prompted, true);
     assert.equal(outcome.kind, "declined-by-user");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("buildContext fetches availableVersions for transitive deps", async () => {
+  const dir = await makeProject();
+  try {
+    const transitiveVuln: Vuln = {
+      package: "minimist", currentVersion: "0.0.8", vulnId: "GHSA-y",
+      severity: "high", advisorySummary: "prototype pollution",
+      patchedVersions: ">=1.2.6", isDirectDep: false,
+    };
+    const calls: string[] = [];
+    const fetchVersions = async (name: string) => {
+      calls.push(name);
+      return ["0.0.8", "1.2.6", "1.2.8"];
+    };
+    const ctx = await buildContext(transitiveVuln, dir, { fetchVersions });
+    assert.deepEqual(calls, ["minimist"]);
+    assert.deepEqual(ctx.availableVersions, ["0.0.8", "1.2.6", "1.2.8"]);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
