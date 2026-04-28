@@ -8,6 +8,7 @@ export type ConfirmFn = (response: FixResponse, vuln: Vuln) => Promise<boolean>;
 
 export interface BuildContextOptions {
   skipVersionLookup?: boolean;
+  fetchVersions?: (pkgName: string) => Promise<string[]>;
 }
 
 export async function fetchAvailableVersions(pkgName: string): Promise<string[]> {
@@ -30,9 +31,8 @@ export async function fetchAvailableVersions(pkgName: string): Promise<string[]>
 
 export async function buildContext(vuln: Vuln, cwd: string, buildOpts: BuildContextOptions = {}): Promise<FixContext> {
   const foundInSource = vuln.isDirectDep ? await findUsages(vuln.package, cwd) : [];
-  const availableVersions = (!buildOpts.skipVersionLookup && vuln.isDirectDep)
-    ? await fetchAvailableVersions(vuln.package)
-    : [];
+  const fetcher = buildOpts.fetchVersions ?? fetchAvailableVersions;
+  const availableVersions = buildOpts.skipVersionLookup ? [] : await fetcher(vuln.package);
   return {
     package: vuln.package,
     currentVersion: vuln.currentVersion,
